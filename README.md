@@ -1,19 +1,13 @@
 # Result e Either
 
----
-
 ## Disclaimer
 
-O que eu apresento aqui não é nada inventado por mim, apenas resultados de muitas pesquisas relacionadas em __como melhorar meus códigos e projetos__. Da mesma forma que em um momento nos meus estudos e práticas eu me senti extremamente incomodado e desconfortável com a arquitetura MVC que é a arquitetura padrão usada na maioria dos cursos de Node.js de nível iniciante (ou até mesmo nos que se dizem "avançados" ou "masters"). Nada contra essa arquitetura, mas eu senti que para dar o próximo passo, eu não poderia continuar fazendo a mesma coisa, então passei a estudar sobre outros assuntos que me ajudassem a _olhar por cima do muro_, como _Design Pattern_, arquitetura em camadas, _Clean Architecture_ e principalmente os princípios [__SOLID__](https://en.wikipedia.org/wiki/SOLID). 
+O que eu apresento aqui não é nada inventado por mim, apenas resultados de muitas pesquisas relacionadas em **como melhorar meus códigos e projetos**. Da mesma forma que em um momento nos meus estudos e práticas eu me senti extremamente incomodado e desconfortável com a arquitetura MVC que é a arquitetura padrão usada na maioria dos cursos de Node.js de nível iniciante (ou até mesmo nos que se dizem "avançados" ou "masters"). Nada contra essa arquitetura, mas eu senti que para dar o próximo passo, eu não poderia continuar fazendo a mesma coisa, então passei a estudar sobre outros assuntos que me ajudassem a _olhar por cima do muro_, como _Design Pattern_, arquitetura em camadas, _Clean Architecture_ e principalmente os princípios [**SOLID**](https://en.wikipedia.org/wiki/SOLID).
 
 Em certo momento, descobri o didático e excelente canal do professor Otavio Lemos no [YouTube](https://www.youtube.com/channel/UC9cOiXh-RFR7KI61KcyTb0g) e , posteriormente, descobri o seu o vídeo
-[108 - Tratamento Flexível de Erros em TypeScript + Node.js | Princípio da Menor Surpresa](https://www.youtube.com/watch?v=ai-gumm3Ois) que me fez finalmente achar um ponto de partida para melhorar meus códigos. Como referência, o professor Lemos mencionou o excelente blog do [Khalil Stemmler](https://khalilstemmler.com/), que me apresentou assuntos que eu jamais fosse imaginar aprender. Dentre os destaques deste blog e do canal do professor, foi a classe `Result` e a monada `Either`, que foram tópicos que me despertou muita curiosidade e são estes tópicos que eu quero falar sobre e compartilhar com vocês. Do meu jeito, é claro, com base no que eu entendi e apliquei/aplico nos meus projetos. Parte dos códigos foram adaptados por mim de acordo com a minha necessidade, mas acho que vale como referência para vocês.
+[108 - Tratamento Flexível de Erros em TypeScript + Node.js | Princípio da Menor Surpresa](https://www.youtube.com/watch?v=ai-gumm3Ois) que me fez finalmente achar um ponto de partida para melhorar meus códigos. Como referência, o professor Lemos mencionou o excelente blog do [Khalil Stemmler](https://khalilstemmler.com/), que me apresentou o livro o seu livro _SOLID The Software Design and Architecture Handbook_. Dentre os destaques deste blog/livro e do canal do professor, foi a classe `Result` e a monada `Either`, que foram tópicos que me despertou muita curiosidade e são estes tópicos que eu quero falar sobre e compartilhar com vocês. Do meu jeito, é claro, com base no que eu entendi e apliquei/aplico nos meus projetos. Parte dos códigos foram adaptados por mim de acordo com a minha necessidade, mas acho que vale como referência para vocês.
 
 Todos os créditos e agradecimentos ao professor Otavio Lemos e ao Khalil Stemmler por compartilharem conhecimento. Não deixem de acompanhar e seguir o canal e o blog mencionados.
-
-Qualquer problema, sugestões ou elogios fique a vontade para interagir comigo abrindo uma Pull Request neste repositório :smile:.
-
-Espero que tenha lhe ajudado com este README :heart:.
 
 ---
 
@@ -75,9 +69,9 @@ A classe `Result` entra para tentar minimizar estes problemas mencionados acima,
 
 ```js
 // caso de uso
-const userFound = await this.userRepository.findUserByEmail(email);
+const userFound = await this.userRepository.findUserByEmail(email)
 if (!userFound) {
-  return Result.fail(`User not found with email: ${email}`);
+  return Result.fail(`User not found with email: ${email}`)
 }
 ```
 
@@ -98,7 +92,7 @@ Dependendo do tipo de erro de `User`, posso tomar decisões diferentes:
 
 ```js
 if (!userNotFound) {
-  return Result.fail(`User not found with email: ${email}`, 'unauthorized');
+  return Result.fail(`User not found with email: ${email}`, 'unauthorized')
 }
 ```
 
@@ -123,7 +117,7 @@ if (userOrFail.isFailure) {
 Obviamente o código acima é apenas um exemplo, mas ele já demonstra como o código ficou mais explicito e claro do que pode acontecer e retornar para uma determinada ação. O próprio código que chamou teve que lidar com os casos de falha, além de termos erros mais "semãnticos" graças ao `type`. Pense por exemplo no caso em que foi definido que qualquer error retornado intencionalmente por uma classe de serviço - que contém as regras de negócio de domínio e da aplicação - vai retornar um objeto de erro do domínio, por exemplo um `DomainUserAuthError`, que retorna caso o usuário não está autorizado para uma executar uma determinada ação. Em um controlador de um servidor HTTP, como o _Express_, eu poderia retornar respostas HTTP de acordo com aquele erro específico de domínio, enviando uma mensagem e um _status code_ de acordo:
 
 ```js
-const userOrFail: Result<any> = await userLoginService.execute(data)  
+const userOrFail: Result<any> = await userLoginService.execute(data)
 if (userOrFail.isFailure && userOrFail.type === 'unauthorized) {
   // trata os erros em caso de 'unauthorized'
   console.log('User Error: ', userOfFail.error);
@@ -138,3 +132,101 @@ if (userOrFail.isFailure) {
 }
 ...
 ```
+
+## Either
+
+Os caminhos felizes e tristes de uma _feature_. Toda feature tem um caminho de sucesso e um ou vários caminho de fracasso. Por exemplo, `CreateUser` é uma funcionalidade que possui diversos caminhos para o fracasso e apenas um para o sucesso.
+
+O que pode dar errado?:
+
+- Erros de regras de domínio
+
+  - Email inválido
+  - Email já em uso
+  - Senha muito curta/fraca
+  - Nome de usuário inválido
+  - Nome de usuário já em uso
+
+- Erros de aplicação
+  - Conexão com banco de dados instável
+  - API para envio de confirmação de email fora do ar
+  - Qualquer erro inesperado
+
+O que pode dar certo?:
+
+- Cadastro com sucesso, retornando o `id` de registro feito
+
+Muitas vezes, temos que tratar esses erros de maneira implicita para o cliente que consome a nossa API, como erros de domínio serem mapeados para um (em casos de aplicação web) código HTTP 4xx, erros de aplicação para códigos 5xx e o caso de sucesso para códigos 2xx.
+
+Normalmente, em aplicações Node.js, pode ser familiar encontrar trechos de código como:
+
+```js
+// controller
+async handle(req: Request, res: Response): Promise<any> {
+  try {
+    const user = await this.createUserService<any>(req.body)
+    return res.status(201).json({userId: user.id})
+  } catch (error) {
+    if (error instanceof InvalidEmail) {
+      return res.status(400).json({message: 'Invalid email'})
+    }
+    if (error instanceof InvalidPassword) {
+      return res.status(400).json({message: 'Invalid password'})
+    }
+    ...
+
+    return res.status(500).json({message: 'Internal Server Error'})
+  }
+}
+
+// service
+async createUserService(body: any) {
+  if (!isValidEmail()) {
+    throw new InvalidEmail()
+  }
+  if (!isValidPassword()) {
+    throw new InvalidPassword()
+  }
+  ...
+  return this.userRepo.create(body)
+}
+```
+
+OK! Isso funciona, você provavelmente vai chegar ao resultado desejado desta forma. Porém, isso leva a alguns pontos como: _O que acontece se tal coisa falhar?_, _Quem trata esse erro?_, _Não era pra ter um `try/catch` por aqui?_, _O que essa chamada pode retornar?_.
+Eu já trabalhei em projetos com Express onde, por exemplo, o email de cadastro deveria ser único, mas ao analisar o código de cadastro de usuários, não encontrei nenhuma lógica que validasse isso. Foi a solução procurar o try/catch e advinha só...não achei. Até que na função `next` do Express, tinha um `switch/case` que verificava se o erro atendia um critério bem específico que indicava se o erro do banco de dados era de um problema de email informado ser duplicado. Moral da história: **foi uma surpresa para mim** como aquele erro foi tratado.
+
+Vamos de outro exemplo.
+
+```js
+type CreateUserRequest = {
+  password: string
+  email: string
+  username: string
+}
+
+// interface para o caso de sucesso
+type CreateUserSuccess = {
+  readonly id: string
+}
+
+// o que pode ser?
+type CreateUserResult = {
+}
+
+function createUser(request: CreateUserRequest): CreateUserResult {
+  ...
+}
+
+if (userResult.isSuccess()) {
+ ...
+}
+if (userResult.isFailure()) {
+ ...
+}
+```
+
+O que pode acontecer aqui em cima? O que queremos fazer no tratamento de erro acima, caso ocorra?
+
+Podemos ter tanto (_Either_) casos de fracasso quanto um caso de sucesso e nosso objetivo é dizer explicitamente o que pode ser retornado por `createUser`, tanto pra dizer se fracassou ou ocorreu com sucesso.
+
+### Introduzindo o tipo `Either`
