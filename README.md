@@ -406,6 +406,164 @@ if (userCreation.isSuccess()) {
 }
 ```
 
+Código de exemplo completo:
+
+```js
+/**
+ * Introduzindo o type Either
+ */
+type Either<S, F> = Success<S, F> | Failure<S, F>
+
+class Success<S, F> {
+  constructor(readonly value: S) {}
+
+  isSuccess(): this is Success<S, F> {
+    return true
+  }
+
+  isFailure(): this is Failure<S, F> {
+    return false
+  }
+}
+
+class Failure<S, F> {
+  constructor(readonly value: F) {}
+
+  isSuccess(): this is Success<S, F> {
+    return false
+  }
+
+  isFailure(): this is Failure<S, F> {
+    return true
+  }
+}
+
+const success = <S, F>(data: S): Either<S, F> => {
+  return new Success(data)
+}
+
+const failure = <S, F>(data: F): Either<S, F> => {
+  return new Failure(data)
+}
+
+type CreateUserRequest = {
+  password: string
+  email: string
+  username: string
+}
+
+type CreateUserSuccess = {
+  readonly id: string
+}
+
+type DomainError = {
+  message: string
+}
+
+type ApplicationError = {
+  message: string,
+  error: any,
+}
+
+class DatabaseError implements ApplicationError {
+  readonly message: string
+
+  constructor(readonly error: any) {
+    this.message = 'A database error occurred'
+    this.error = error
+  }
+}
+
+class CreateUser implements CreateUserSuccess {
+  constructor(readonly id: string) {}
+}
+
+class InvalidEmailError implements DomainError {
+  readonly message: string
+
+  constructor(email: string) {
+    this.message = `The email ${email} is invalid`
+  }
+}
+
+class InvalidPasswordError implements DomainError {
+  readonly message: string
+
+  constructor(pass: string) {
+    this.message = `The password ${pass} is invalid`
+  }
+}
+
+class UserAlreadyExistError implements DomainError {
+  readonly message: string
+
+  constructor(username: string) {
+    this.message = `The username ${username} is already taken`
+  }
+}
+
+type CreateUserResult = Either<
+  CreateUserSuccess,
+  InvalidEmailError | InvalidPasswordError | UserAlreadyExistError | ApplicationError
+>
+
+const isEmailValid = () => {
+  return true
+}
+const isPassValid = () => {
+  return true
+}
+const isUserValid = () => {
+  return true
+}
+
+const db = {
+  create: (req: any) => ({id: '1234'})
+}
+
+function createUser(request: CreateUserRequest): CreateUserResult {
+  if (!isEmailValid()) {
+    return failure(new InvalidEmailError(request.email))
+  }
+
+  if (!isPassValid()) {
+    return failure(new InvalidPasswordError(request.password))
+  }
+
+  if (!isUserValid()) {
+    return failure(new UserAlreadyExistError(request.username))
+  }
+
+  try {
+    const user = db.create(request)
+    return success(new CreateUser(user.id))
+  } catch (error) {
+    return failure(new DatabaseError(error))
+  }
+}
+
+const userCreation: CreateUserResult = createUser({
+  password: '123',
+  email: 'test@email.com',
+  username: 'test'
+})
+
+if (userCreation.isFailure()) {
+  const error = userCreation.value
+  switch(error.constructor){
+    case InvalidEmailError:
+      break;
+    case InvalidPasswordError:
+      break;
+    case UserAlreadyExistError:
+      break;
+  }
+}
+if (userCreation.isSuccess()) {
+  console.log(userCreation.value.id)
+}
+```
+
 ---
 
 - Referência: [SOLID The Software Design and Architecture Handbook](https://solidbook.io/)
