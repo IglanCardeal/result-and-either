@@ -230,3 +230,182 @@ O que pode acontecer aqui em cima? O que queremos fazer no tratamento de erro ac
 Podemos ter tanto (_Either_) casos de fracasso quanto um caso de sucesso e nosso objetivo é dizer explicitamente o que pode ser retornado por `createUser`, tanto pra dizer se fracassou ou ocorreu com sucesso.
 
 ### Introduzindo o tipo `Either`
+
+Como ele é:
+
+```js
+type Either<S, F> = Success<S, F> | Failure<S, F>
+```
+
+Este tipo indica que o mesmo pode possuir 2 valores, graças ao _Union Type_. No caso acima, ele recebe o tipo estrutural da classe `Success` ou `Failure`, ou seja, um valor de sucesso ou fracaso.
+
+Como são as classes:
+
+```js
+class Success<S, F> {
+  constructor(readonly value: S) {}
+
+  isSuccess(): this is Success<S, F> {
+    return true
+  }
+
+  isFailure(): this is Failure<S, F> {
+    return false
+  }
+}
+
+class Failure<S, F> {
+  constructor(readonly value: F) {}
+
+  isSuccess(): this is Success<S, F> {
+    return false
+  }
+
+  isFailure(): this is Failure<S, F> {
+    return true
+  }
+}
+```
+
+Usamos o recurso de _Generics_ pois precisamos passar para as classes valores de objetos e temos que saber se estes valores são de sucesso ou fracasso. Por isso temos 2 classes, cada uma implementa a mesma interface, mas com comportamentos diferentes.
+
+Factories functions:
+
+```js
+const success = <S, F>(data: S): Either<S, F> => {
+  return new Success(data)
+}
+
+const failure = <S, F>(data: F): Either<S, F> => {
+  return new Failure(data)
+}
+```
+
+Vamos tipar os casos possíveis de retorno e dar um significado semântico para cada um deles:
+
+```js
+// interface para o caso de sucesso
+type CreateUserSuccess = {
+  readonly id: string
+}
+
+// algum ero de domínio
+type DomainError = {
+  message: string
+}
+
+// algum erro de aplicação
+type ApplicationError = {
+  message: string,
+  error: any,
+}
+```
+
+Agora as classes que implementam essas interfaces:
+
+```js
+class CreateUser implements CreateUserSuccess {
+  constructor(readonly id: string) {}
+}
+
+class InvalidEmailError implements DomainError {
+  readonly message: string
+
+  constructor(email: string) {
+    this.message = `The email ${email} is invalid`
+  }
+}
+
+class InvalidPasswordError implements DomainError {
+  readonly message: string
+
+  constructor(pass: string) {
+    this.message = `The password ${pass} is invalid`
+  }
+}
+
+class UserAlreadyExistError implements DomainError {
+  readonly message: string
+
+  constructor(username: string) {
+    this.message = `The username ${username} is already taken`
+  }
+}
+
+class DatabaseError implements ApplicationError {
+  readonly message: string
+
+  constructor(readonly error: any) {
+    this.message = 'A database error occurred'
+    this.error = error
+  }
+}
+```
+
+Repare que até um erro de aplicação (banco de dados) foi convertido em um erro semântico e explicito. Agora `createUser` pode retornar o seguinte:
+
+```js
+type CreateUserResult = Either<
+  CreateUserSuccess,
+  | InvalidEmailError
+  | InvalidPasswordError
+  | UserAlreadyExistError
+  | ApplicationError
+>
+
+function createUser(request: CreateUserRequest): CreateUserResult {
+  if (!isEmailValid()) {
+    return failure(new InvalidEmailError(request.email))
+  }
+
+  if (!isPassValid()) {
+    return failure(new InvalidPasswordError(request.password))
+  }
+
+  if (!isUserValid()) {
+    return failure(new UserAlreadyExistError(request.username))
+  }
+
+  try {
+    const user = db.create(request)
+    return success(new CreateUser(user.id))
+  } catch (error) {
+    return failure(new DatabaseError(error))
+  }
+}
+```
+
+Para o cliente que consome esta função, ficará **explicito** o que a chamada de `createUser` pode retornar, e assim, realizar as devidas tratativas para os mesmos:
+
+```js
+const userCreation: CreateUserResult = createUser({
+  password: '123',
+  email: 'test@email.com',
+  username: 'test'
+})
+
+if (userCreation.isFailure()) {
+  const error = userCreation.value
+  switch (error.constructor) {
+    case InvalidEmailError:
+      ...
+      break
+    case InvalidPasswordError:
+      ...
+      break
+    case UserAlreadyExistError:
+      ...
+      break
+    case ApplicationError:
+      ...
+      break
+  }
+}
+if (userCreation.isSuccess()) {
+  console.log(userCreation.value.id)
+}
+```
+
+---
+
+- Referência: [SOLID The Software Design and Architecture Handbook](https://solidbook.io/)
